@@ -1,53 +1,73 @@
 package Task2;
 
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.IntConsumer;
 
 public class FizzBuzzMultithreaded {
     private int n;
-    private BlockingQueue<String> queue = new LinkedBlockingQueue<>();
+    private int currentNumber = 1;
+    private final Object lock = new Object();
 
     public FizzBuzzMultithreaded(int n) {
         this.n = n;
     }
-
-    public void fizz() throws InterruptedException {
-        for (int i = 1; i <= n; i++) {
-            if (i % 3 == 0 && i % 5 != 0) {
-                queue.put("fizz");
+    
+    public void fizz(Runnable printFizz) throws InterruptedException {
+        synchronized (lock) {
+            while (currentNumber <= n) {
+                while (currentNumber <= n && (currentNumber % 3 != 0 || currentNumber % 5 == 0)) {
+                    lock.wait();
+                }
+                if (currentNumber <= n) {
+                    printFizz.run();
+                    currentNumber++;
+                    lock.notifyAll();
+                }
             }
         }
     }
 
-    public void buzz() throws InterruptedException {
-        for (int i = 1; i <= n; i++) {
-            if (i % 5 == 0 && i % 3 != 0) {
-                queue.put("buzz");
+    public void buzz(Runnable printBuzz) throws InterruptedException {
+        synchronized (lock) {
+            while (currentNumber <= n) {
+                while (currentNumber <= n && (currentNumber % 5 != 0 || currentNumber % 3 == 0)) {
+                    lock.wait();
+                }
+                if (currentNumber <= n) {
+                    printBuzz.run();
+                    currentNumber++;
+                    lock.notifyAll();
+                }
             }
         }
     }
 
-    public void fizzbuzz() throws InterruptedException {
-        for (int i = 1; i <= n; i++) {
-            if (i % 3 == 0 && i % 5 == 0) {
-                queue.put("fizzbuzz");
+    public void fizzbuzz(Runnable printFizzBuzz) throws InterruptedException {
+        synchronized (lock) {
+            while (currentNumber <= n) {
+                while (currentNumber <= n && (currentNumber % 3 != 0 || currentNumber % 5 != 0)) {
+                    lock.wait();
+                }
+                if (currentNumber <= n) {
+                    printFizzBuzz.run();
+                    currentNumber++;
+                    lock.notifyAll();
+                }
             }
         }
     }
 
-    public void number() throws InterruptedException {
-        for (int i = 1; i <= n; i++) {
-            String result;
-            if (i % 3 == 0 && i % 5 == 0) {
-                result = queue.take();
-            } else if (i % 3 == 0) {
-                result = queue.take();
-            } else if (i % 5 == 0) {
-                result = queue.take();
-            } else {
-                result = Integer.toString(i);
+    public void number(IntConsumer printNumber) throws InterruptedException {
+        synchronized (lock) {
+            while (currentNumber <= n) {
+                while (currentNumber <= n && (currentNumber % 3 == 0 || currentNumber % 5 == 0)) {
+                    lock.wait();
+                }
+                if (currentNumber <= n) {
+                    printNumber.accept(currentNumber);
+                    currentNumber++;
+                    lock.notifyAll();
+                }
             }
-            System.out.print(result + (i < n ? ", " : ""));
         }
     }
 
@@ -57,7 +77,7 @@ public class FizzBuzzMultithreaded {
 
         Thread threadA = new Thread(() -> {
             try {
-                fizzBuzz.fizz();
+                fizzBuzz.fizz(() -> System.out.print("fizz, "));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -65,7 +85,7 @@ public class FizzBuzzMultithreaded {
 
         Thread threadB = new Thread(() -> {
             try {
-                fizzBuzz.buzz();
+                fizzBuzz.buzz(() -> System.out.print("buzz, "));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -73,7 +93,7 @@ public class FizzBuzzMultithreaded {
 
         Thread threadC = new Thread(() -> {
             try {
-                fizzBuzz.fizzbuzz();
+                fizzBuzz.fizzbuzz(() -> System.out.print("fizzbuzz, "));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -81,7 +101,7 @@ public class FizzBuzzMultithreaded {
 
         Thread threadD = new Thread(() -> {
             try {
-                fizzBuzz.number();
+                fizzBuzz.number(number -> System.out.print(number + ", "));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -91,5 +111,16 @@ public class FizzBuzzMultithreaded {
         threadB.start();
         threadC.start();
         threadD.start();
+
+        try {
+            threadA.join();
+            threadB.join();
+            threadC.join();
+            threadD.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        System.out.println("\b\b");
     }
 }
